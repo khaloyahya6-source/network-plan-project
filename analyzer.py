@@ -52,8 +52,10 @@ class EnvironmentAnalyzer:
         bearing = math.atan2(y, x)
         return (math.degrees(bearing) + 360) % 360
 
-    def analyze_environment(self, lat, lon):
+    def analyze_environment(self, lat, lon, already_covered_polygons=None):
         print(f"Analyzing environment at ({lat}, {lon})...")
+        if already_covered_polygons is None:
+            already_covered_polygons = []
         try:
             # Fetch features from OSM
             tags = {
@@ -71,11 +73,11 @@ class EnvironmentAnalyzer:
             return np.zeros(360), "Empty/Rural"
 
         priority_map = np.zeros(360)
-        
+
         # Determine overall context
         total_buildings = len(gdf[gdf['building'].notna()]) if 'building' in gdf.columns else 0
         total_roads = len(gdf[gdf['highway'].notna()]) if 'highway' in gdf.columns else 0
-        
+
         context = "Urban" if total_buildings > 50 else "Suburban" if total_buildings > 10 else "Rural"
         if total_roads > 5 and total_buildings < 5:
             context = "Highway"
@@ -83,10 +85,24 @@ class EnvironmentAnalyzer:
         for _, row in gdf.iterrows():
             # Get center of the feature
             centroid = row.geometry.centroid
+
+            # Check if this feature is already covered by existing sectors
+            is_covered = False
+            for poly in already_covered_polygons:
+                if poly.contains(centroid):
+                    is_covered = True
+                    # print(f"DEBUG: Feature {row.get('name', 'unnamed')} is covered by an existing sector.")
+                    break
+
+            if is_covered:
+                # Optionally, instead of skipping, we could reduce priority
+                # but user said "يفضل الاستبعاد نهائي" (prefer total exclusion)
+                continue
+
             azimuth = self.get_azimuth(lat, lon, centroid.y, centroid.x)
-            
+
             weight = 1 # Default weight
-            
+
             # Check tags for weights
             for tag_type, values in self.weights.items():
                 if tag_type in row and pd.notna(row[tag_type]):
@@ -97,14 +113,14 @@ class EnvironmentAnalyzer:
             # For simplicity, we use a fixed spread or calculate based on distance
             dist = Point(lon, lat).distance(centroid) # This is crude degree distance
             # Better: use a small spread
-            spread = 5 
+            spread = 5
             for i in range(-spread, spread + 1):
                 angle = int((azimuth + i) % 360)
                 priority_map[angle] += weight
 
         # Smooth the priority map
         priority_map = np.convolve(priority_map, np.ones(11)/11, mode='same')
-        
+
         return priority_map, context
 
 if __name__ == "__main__":

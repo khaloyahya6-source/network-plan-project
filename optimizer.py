@@ -15,31 +15,29 @@ class SectorOptimizer:
     def optimize(self, priority_map, context):
         """
         Determine number of sectors and their azimuths.
-        Rules:
-        - Highway/Rural: 2 sectors
-        - Urban: 3 sectors
-        - Dense Urban/Big Village: 4 sectors
+        Returns: (azimuths, explanation)
         """
         if context == "Highway":
-            num_sectors = 2
+            target_sectors = 2
         elif context == "Rural":
-            num_sectors = 2
+            target_sectors = 2
         elif context == "Urban":
-            num_sectors = 3
+            target_sectors = 3
         else: # Suburban or fallback
-            num_sectors = 3
-            
+            target_sectors = 3
+
         # Optional upgrade to 4 if density is very high and distributed
-        if num_sectors == 3 and np.mean(priority_map) > np.percentile(priority_map, 70) * 1.5:
-             num_sectors = 4
+        if target_sectors == 3 and np.mean(priority_map) > np.percentile(priority_map, 70) * 1.5:
+             target_sectors = 4
 
         azimuths = []
+        explanation = ""
         available_map = priority_map.copy()
-        
-        for _ in range(num_sectors):
+
+        for i in range(target_sectors):
             best_score = -1
             best_angle = 0
-            
+
             # Search for best center angle
             for angle in range(360):
                 # Check for overlap with existing sectors
@@ -50,26 +48,29 @@ class SectorOptimizer:
                     if diff < (self.beamwidth + self.min_gap):
                         overlap = True
                         break
-                
+
                 if overlap:
                     continue
-                
+
                 score = self.get_sector_priority(available_map, angle)
                 if score > best_score:
                     best_score = score
                     best_angle = angle
-            
-            if best_score > 0:
+
+            # Use a threshold for "meaningful" score.
+            # If the score is too low, it means the area is already covered or empty.
+            if best_score > 0.5: # Threshold can be adjusted
                 azimuths.append(best_angle)
                 # "Subtract" covered priority to encourage spreading
                 half_bw = self.beamwidth / 2
                 for i in np.arange(best_angle - half_bw, best_angle + half_bw):
                     available_map[int(i % 360)] *= 0.1 # Heavily reduce
             else:
-                # No more room or no more priority
+                if len(azimuths) < target_sectors:
+                    explanation = f"Reduced from {target_sectors} to {len(azimuths)} sectors because remaining areas are already covered by other towers or have no priority targets."
                 break
-        
-        return sorted(azimuths)
+
+        return sorted(azimuths), explanation
 
 if __name__ == "__main__":
     from analyzer import EnvironmentAnalyzer

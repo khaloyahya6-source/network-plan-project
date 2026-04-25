@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_d7991cc1be83578d87f87ed377f3f656 {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+
+</head>
+<body>
+
+
+            <div class="folium-map" id="map_d7991cc1be83578d87f87ed377f3f656" ></div>
+
+</body>
+<script>
+
+
+            var map_d7991cc1be83578d87f87ed377f3f656 = L.map(
+                "map_d7991cc1be83578d87f87ed377f3f656",
+                {
+                    center: [34.7413945, 36.6761925],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 12,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+
+
+
+
+            var tile_layer_f35cbcbb096a52ffe5b9b555af6b4b56 = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+
+
+            tile_layer_f35cbcbb096a52ffe5b9b555af6b4b56.addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var tile_layer_f61576dd994bc885809b8476dd220940 = L.tileLayer(
+                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 20,
+  "maxNativeZoom": 20,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\"https://carto.com/attributions\"\u003eCARTO\u003c/a\u003e",
+  "subdomains": "abcd",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+
+
+            tile_layer_f61576dd994bc885809b8476dd220940.addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var tile_layer_e19aadf8327055462c6564fa42ad80b7 = L.tileLayer(
+                "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+                {
+  "minZoom": 0,
+  "maxZoom": 18,
+  "maxNativeZoom": 18,
+  "noWrap": false,
+  "attribution": "Esri",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+
+
+            tile_layer_e19aadf8327055462c6564fa42ad80b7.addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var marker_d6225e580a5e456d7eed443bd0d34cdb = L.marker(
+                [34.744289, 36.686672],
+                {
+}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var icon_544b30c5eaf367d2620e0dde2c074961 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "broadcast-tower",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+
+
+            marker_d6225e580a5e456d7eed443bd0d34cdb.bindTooltip(
+                `<div>
+                     jabola (Urban)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+                marker_d6225e580a5e456d7eed443bd0d34cdb.setIcon(icon_544b30c5eaf367d2620e0dde2c074961);
+
+
+            var polygon_f8dbefcfa080ad3bc2ccd15c773e3bc7 = L.polygon(
+                [[34.744289, 36.686672], [34.74847751703936, 36.68867990216872], [34.748317780143104, 36.68911652539663], [34.74812738179732, 36.68953454431022], [34.74790777104837, 36.68993077753316], [34.74766061926667, 36.690302209491364], [34.74738780742651, 36.69064601336336], [34.74709141179073, 36.690959572594096], [34.74677368810907, 36.691240500808476], [34.74643705445061, 36.691486659973165], [34.74608407280075, 36.69169617666829], [34.74571742956298, 36.691867456345285], [34.74533991511373, 36.691999195462394], [34.7449544025659, 36.69209039140539], [34.744563825902766, 36.692140350118066], [34.744289, 36.686672]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_f8dbefcfa080ad3bc2ccd15c773e3bc7.bindTooltip(
+                `<div>
+                     jabola - Sector 1: 54°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_90631402c99cc73164868d026a889b31 = L.polygon(
+                [[34.744289, 36.686672], [34.74278628147246, 36.69183632621852], [34.742422150348034, 36.691657285385205], [34.74207222707669, 36.691440303519904], [34.74173917478582, 36.691187031985635], [34.74142552820445, 36.69089939833171], [34.74113367437246, 36.69057959162391], [34.74086583447374, 36.690230045784375], [34.74062404693163, 36.68985342106802], [34.740410151895325, 36.68945258381634], [34.74022577723522, 36.68903058464286], [34.74007232615379, 36.688590635216094], [34.73995096650643, 36.68813608381683], [34.73986262191333, 36.687670389855676], [34.73980796473019, 36.68719709754488], [34.744289, 36.686672]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_90631402c99cc73164868d026a889b31.bindTooltip(
+                `<div>
+                     jabola - Sector 2: 142°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_b54f1bc8905b9bfde7cc47be7b0a115d = L.polygon(
+                [[34.744289, 36.686672], [34.74081533094351, 36.68318720173783], [34.74107811731418, 36.68283202040582], [34.74136534044087, 36.682506063637156], [34.741674814382165, 36.68221181215968], [34.74200418385449, 36.681951505404804], [34.7423509421573, 36.68172712446411], [34.74271245025052, 36.68154037701204], [34.74308595683928, 36.68139268430947], [34.743468619312914, 36.68128517038704], [34.743857525378935, 36.681218653490625], [34.74424971522735, 36.681193639853966], [34.74464220405661, 36.68121031984594], [34.74503200478973, 36.68126856652174], [34.745416150807756, 36.68136793658899], [34.744289, 36.686672]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_b54f1bc8905b9bfde7cc47be7b0a115d.bindTooltip(
+                `<div>
+                     jabola - Sector 3: 252°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var marker_576377fad0f85d2597fd49d7850e614a = L.marker(
+                [34.746339, 36.683411],
+                {
+}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var icon_92b96511a17d4b9d3aa7cc221fa885a6 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "broadcast-tower",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+
+
+            marker_576377fad0f85d2597fd49d7850e614a.bindTooltip(
+                `<div>
+                     al farouk (Urban)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+                marker_576377fad0f85d2597fd49d7850e614a.setIcon(icon_92b96511a17d4b9d3aa7cc221fa885a6);
+
+
+            var polygon_9ae1a477be23a9d6ae648c9e40fc0c80 = L.polygon(
+                [[34.746339, 36.683411], [34.74738991511373, 36.68873832766699], [34.7470044025659, 36.68882952587318], [34.74661382590276, 36.68887948582569], [34.74622115764856, 36.68888782729909], [34.745829386245816, 36.68885448680975], [34.745441493311446, 36.68877971809893], [34.74506043094491, 36.68866409020165], [34.7446890992609, 36.68850848311603], [34.74433032431776, 36.68831408110596], [34.74398683660942, 36.6880823636881], [34.74366125028477, 36.687815094371935], [34.74335604325231, 36.68751430723834], [34.74307353832187, 36.68718229145901], [34.74281588552654, 36.686821573874504], [34.746339, 36.683411]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_9ae1a477be23a9d6ae648c9e40fc0c80.bindTooltip(
+                `<div>
+                     al farouk - Sector 1: 109°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_fc8a43e656a1cc8b0a33867e44522e7e = L.polygon(
+                [[34.746339, 36.683411], [34.74202262320814, 36.68185496379202], [34.74215048296064, 36.68140304800132], [34.7423102198569, 36.680966413937774], [34.74250061820268, 36.680548384650244], [34.74272022895163, 36.680152141594014], [34.74296738073333, 36.67978070041801], [34.74324019257349, 36.67943688801385], [34.743536588209274, 36.679123321001555], [34.74385431189093, 36.6788423858154], [34.74419094554939, 36.67859622054179], [34.74454392719925, 36.67838669864711], [34.74491057043702, 36.678215414719475], [34.74528808488627, 36.67808367233301], [34.7456735974341, 36.67799247412682], [34.746339, 36.683411]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_fc8a43e656a1cc8b0a33867e44522e7e.bindTooltip(
+                `<div>
+                     al farouk - Sector 2: 229°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_fa3555db82559b69c460469093cf5992 = L.polygon(
+                [[34.746339, 36.683411], [34.74820584965197, 36.67842559089536], [34.74855577292331, 36.67864257814548], [34.74888882521418, 36.678895855965166], [34.74920247179555, 36.679183496757275], [34.74949432562754, 36.679503311401696], [34.74976216552626, 36.679852865915876], [34.75000395306837, 36.6802294999789], [34.750217848104676, 36.68063034717812], [34.750402222764784, 36.68105235682433], [34.75055567384621, 36.68149231716929], [34.750677033493574, 36.68194687984912], [34.75076537808667, 36.68241258536736], [34.75082003526981, 36.682885889423815], [34.75084058906882, 36.68336318988882], [34.746339, 36.683411]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_fa3555db82559b69c460469093cf5992.bindTooltip(
+                `<div>
+                     al farouk - Sector 3: 327°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var marker_e2c055e71acc87d70a65c305ab4d74b0 = L.marker(
+                [34.737567, 36.670131],
+                {
+}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var icon_7e2bdeed6ee9cc6ee66620102c453431 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "broadcast-tower",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+
+
+            marker_e2c055e71acc87d70a65c305ab4d74b0.bindTooltip(
+                `<div>
+                     3M (Urban)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+                marker_e2c055e71acc87d70a65c305ab4d74b0.setIcon(icon_7e2bdeed6ee9cc6ee66620102c453431);
+
+
+            var polygon_9e8eb1aee708e55cae74ceace1984e8e = L.polygon(
+                [[34.737567, 36.670131], [34.741883376791854, 36.67168687100056], [34.74175551703936, 36.672138738810474], [34.7415957801431, 36.67257532651573], [34.741405381797314, 36.67299331142027], [34.741185771048364, 36.673389512406594], [34.740938619266664, 36.673760914145966], [34.74066580742651, 36.67410469004688], [34.740369411790724, 36.674418223767155], [34.74005168810907, 36.67469912912587], [34.739715054450606, 36.67494526826363], [34.739362072800745, 36.67515476791296], [34.738995429562976, 36.67532603365504], [34.73861791511373, 36.67545776205416], [34.7382324025659, 36.675548950577664], [34.737567, 36.670131]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_9e8eb1aee708e55cae74ceace1984e8e.bindTooltip(
+                `<div>
+                     3M - Sector 1: 49°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_e3a9c97af66bcebf788961e6cc9d26cb = L.polygon(
+                [[34.737567, 36.670131], [34.733770253718326, 36.66718760664175], [34.733995513284356, 36.66679612999625], [34.73424795402082, 36.66643003372513], [34.73452565470128, 36.66609210404206], [34.73482650185588, 36.665784912795985], [34.73514820585611, 36.665510797897774], [34.73548831834029, 36.665271845527315], [34.73584425084704, 36.665069874256424], [34.73621329451506, 36.66490642120844], [34.736592640699214, 36.66478273035975], [34.73697940234599, 36.66469974307238], [34.7373706359657, 36.66465809092973], [34.73776336403429, 36.66465809092973], [34.73815459765401, 36.66469974307238], [34.737567, 36.670131]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_e3a9c97af66bcebf788961e6cc9d26cb.bindTooltip(
+                `<div>
+                     3M - Sector 2: 245°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_157de4028a81268422aaae768cbb2cef = L.polygon(
+                [[34.737567, 36.670131], [34.73892070548494, 36.66490642120844], [34.73928974915296, 36.665069874256424], [34.73964568165971, 36.665271845527315], [34.739985794143884, 36.665510797897774], [34.74030749814412, 36.665784912795985], [34.74060834529872, 36.66609210404206], [34.740886045979174, 36.66643003372513], [34.74113848671564, 36.66679612999625], [34.74136374628167, 36.66718760664175], [34.741560110315966, 36.66760148428798], [34.74172608436965, 36.66803461307614], [34.74186040527996, 36.66848369663462], [34.74196205078365, 36.668945317166376], [34.74203024729708, 36.66941596146044], [34.737567, 36.670131]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_157de4028a81268422aaae768cbb2cef.bindTooltip(
+                `<div>
+                     3M - Sector 3: 320°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var marker_f7f3710eef0509e62f6d0a0e4bbfe3f1 = L.marker(
+                [34.737383, 36.664556],
+                {
+}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            var icon_0d20fba22b2aa303cf0681e24910cff2 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "blue",
+  "iconColor": "white",
+  "icon": "broadcast-tower",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+
+
+            marker_f7f3710eef0509e62f6d0a0e4bbfe3f1.bindTooltip(
+                `<div>
+                     SEMPHONE (Urban)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+                marker_f7f3710eef0509e62f6d0a0e4bbfe3f1.setIcon(icon_0d20fba22b2aa303cf0681e24910cff2);
+
+
+            var polygon_4b5883f7bbe900318d630a6a80bc3272 = L.polygon(
+                [[34.737383, 36.664556], [34.741884589068825, 36.664603804928625], [34.74186403526981, 36.66508105365497], [34.74180937808667, 36.66555430640597], [34.741721033493576, 36.66601996144243], [34.74159967384621, 36.66647447484834], [34.741446222764786, 36.66691438750225], [34.74126184810468, 36.667336351403236], [34.741047953068374, 36.66773715515122], [34.740806165526266, 36.668113748387675], [34.74053832562754, 36.668463265010665], [34.74024647179555, 36.668783044987656], [34.73993282521418, 36.66907065459993], [34.73959977292331, 36.66932390496468], [34.73924984965197, 36.6695408686937], [34.737383, 36.664556]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_4b5883f7bbe900318d630a6a80bc3272.bindTooltip(
+                `<div>
+                     SEMPHONE - Sector 1: 33°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_e39561379902c976f5adf828ff03f9b5 = L.polygon(
+                [[34.737383, 36.664556], [34.73288141093118, 36.664603804928625], [34.73289511694311, 36.66412619237791], [34.73294297845497, 36.66365185092272], [34.73302463121174, 36.66318439058794], [34.73313945378664, 36.66272736902899], [34.733286572310554, 36.66228426445589], [34.73346486712268, 36.661858449162], [34.733672981291825, 36.6614531638588], [34.73390933094351, 36.66107149301219], [34.73417211731418, 36.660716341367745], [34.73445934044087, 36.66039041184395], [34.734768814382164, 36.660096184961276], [34.73509818385449, 36.65983589996395], [34.7354449421573, 36.65961153777798], [34.737383, 36.664556]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_e39561379902c976f5adf828ff03f9b5.bindTooltip(
+                `<div>
+                     SEMPHONE - Sector 2: 212°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+
+            var polygon_7536608e4225da98364cfa2a8eb237ed = L.polygon(
+                [[34.737383, 36.664556], [34.73858604316072, 36.659277125577276], [34.73895954974948, 36.65942480593506], [34.7393210578427, 36.65961153777798], [34.73966781614551, 36.65983589996395], [34.73999718561784, 36.660096184961276], [34.74030665955913, 36.66039041184395], [34.74059388268582, 36.660716341367745], [34.74085666905649, 36.66107149301219], [34.74109301870818, 36.6614531638588], [34.741301132877325, 36.661858449162], [34.74147942768945, 36.66228426445589], [34.74162654621336, 36.66272736902899], [34.74174136878826, 36.66318439058794], [34.74182302154503, 36.66365185092272], [34.737383, 36.664556]],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.4, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 2}
+            ).addTo(map_d7991cc1be83578d87f87ed377f3f656);
+
+
+            polygon_7536608e4225da98364cfa2a8eb237ed.bindTooltip(
+                `<div>
+                     SEMPHONE - Sector 3: 318°
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+
+</script>
+</html>
