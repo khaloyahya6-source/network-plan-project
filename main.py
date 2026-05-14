@@ -8,127 +8,70 @@ from rf_model import RFModel
 from shapely.geometry import Polygon
 
 def fuzzy_parse_bands(band_string):
-    """
-    Map strings like 'U900', 'L1800', 'n78', 'G9' to Low/Mid/High layers.
-    """
+    """Parses inconsistent band strings into Low, Mid, and High layers."""
     if not isinstance(band_string, str): return []
-
     bands = []
-    # Split by common delimiters
-    tokens = re.split(r'[,|/; ]+', band_string)
-
-    for t in tokens:
-        t = t.upper().strip()
-        # Regex to find numbers
-        match = re.search(r'(\d+)', t)
+    for t in re.split(r'[,|/; ]+', band_string):
+        match = re.search(r'(\d+)', t.upper().strip())
         if not match: continue
-
         freq = int(match.group(1))
-        # Handle cases like '9' for 900
         if freq < 100: freq *= 100
-
-        if freq <= 1000:
-            bands.append(('Low', t, freq))
-        elif freq <= 2200:
-            bands.append(('Mid', t, freq))
-        else:
-            bands.append(('High', t, freq))
+        layer = 'Low' if freq <= 1000 else 'Mid' if freq <= 2200 else 'High'
+        bands.append((layer, t.upper().strip(), freq))
     return bands
 
 def main():
-    print("Initializing RF Planning Tool...")
-
+    print("Initializing Automated RF Planning Tool...")
     try:
-        # Load Sites from single sheet
+        # Single-sheet input structure
         df_sites = pd.read_excel('sites.xlsx')
     except Exception as e:
-        print(f"Error loading Excel: {e}")
-        return
+        print(f"Excel Error: {e}"); return
 
-    analyzer = EnvironmentAnalyzer()
-    optimizer = SectorOptimizer()
-    rf_model = RFModel()
-
-    global_coverage_polygons = []
-    results = []
-
-    # Map Setup
+    analyzer, optimizer, rf_model = EnvironmentAnalyzer(), SectorOptimizer(), RFModel()
+    global_polys, results = [], []
     m = folium.Map(location=[df_sites['Latitude'].mean(), df_sites['Longitude'].mean()], zoom_start=13)
-    folium.TileLayer('cartodbpositron', name='Street Map').add_to(m)
 
-    for idx, row in df_sites.iterrows():
-        site_id = row['Site ID']
-        site_name = row['Site Name']
-        lat, lon = row['Latitude'], row['Longitude']
-        total_height = row['Total Height']
-
-        print(f"Processing Site: {site_id} ({site_name})...")
-
-        # 1. Get Bands for this site (Directly from columns)
-        raw_bands = row.get('Bands', '')
-        if pd.isna(raw_bands) or not str(raw_bands).strip():
-            print(f"No bands found for {site_id}, skipping.")
-            continue
-
-        raw_bands = str(raw_bands)
+    for _, row in df_sites.iterrows():
+        s_id, s_name, lat, lon, h = row['Site ID'], row['Site Name'], row['Latitude'], row['Longitude'], row['Total Height']
+        raw_bands = str(row.get('Bands', ''))
         parsed_bands = fuzzy_parse_bands(raw_bands)
+        if not parsed_bands: continue
 
-        # 2. Analyze Environment
+        print(f"Processing Site: {s_id}...")
         osm_data = analyzer.fetch_osm_data(lat, lon)
         site_type = analyzer.classify_site(lat, lon, osm_data)
+        azimuths = optimizer.optimize_azimuths(lat, lon, site_type, analyzer, rf_model, osm_data, global_polys)
 
-        # 3. Optimize Azimuths
-        azimuths = optimizer.optimize_azimuths(lat, lon, site_type, analyzer, rf_model, parsed_bands, osm_data, global_coverage_polygons)
-
-        # 4. Generate Sectors & Map Layers
         for s_idx, az in enumerate(azimuths):
-            sector_id = s_idx + 1
+            # Use Mid band range for clutter sampling
+            sample_r = rf_model.calculate_range('Mid', 0.5, h)
+            clutter = analyzer.get_sector_clutter_score(lat, lon, az, 65, sample_r, osm_data)
 
-            # For each band, calculate range and draw concentric polygons
-            # Sort bands: Low (largest) first to High (smallest) so they stack correctly on map
-            sorted_bands = sorted(parsed_bands, key=lambda x: x[2])
+            # Stack concentric polygons (Low at bottom)
+            for b_layer, b_name, freq in sorted(parsed_bands, key=lambda x: x[2]):
+                calc_r = rf_model.calculate_range(b_layer, clutter, h)
+                coords = rf_model.get_sector_polygon(lat, lon, az, 65, calc_r)
+                if b_layer == 'Low': global_polys.append(Polygon([(p[1], p[0]) for p in coords]))
 
-            # We calculate clutter score based on the Mid band range as a representative sample
-            sample_range = rf_model.calculate_range('Mid', 0.5, total_height)
-            clutter = analyzer.get_sector_clutter_score(lat, lon, az, 65, sample_range, osm_data)
-
-            for band_type, band_name, freq in sorted_bands:
-                calc_range = rf_model.calculate_range(band_type, clutter, total_height)
-                poly_coords = rf_model.get_sector_polygon(lat, lon, az, 65, calc_range)
-
-                # Add to global coverage (using Low band only for whitespace filling)
-                if band_type == 'Low':
-                    global_coverage_polygons.append(Polygon([(p[1], p[0]) for p in poly_coords]))
-
-                # Map Colors
-                color_map = {'Low': 'green', 'Mid': 'blue', 'High': 'red'}
-
-                # Tooltip logic
-                tooltip_html = f"Site:{site_id}, S:{sector_id}<br><br>INFORMATION<br>Site ID: {site_id}<br>Site Name: {site_name}<br>SectorID: {sector_id}<br>Azimuth: {az}<br>Beamwidth: 65<br>GPS Lat: {lat}<br>GPS Lon: {lon}<br><br>DATA<br>Layer 1 Height (m): {total_height}"
+                # Requested Tooltip Structure
+                tooltip = f"Site:{s_id}, S:{s_idx+1}<br><br>INFORMATION<br>Site ID: {s_id}<br>Site Name: {s_name}<br>SectorID: {s_idx+1}<br>Azimuth: {az}<br>Beamwidth: 65<br>GPS Lat: {lat}<br>GPS Lon: {lon}<br><br>DATA<br>Layer 1 Height (m): {h}"
 
                 folium.Polygon(
-                    locations=poly_coords,
-                    color=color_map.get(band_type, 'gray'),
-                    fill=True,
-                    fill_opacity=0.2,
-                    weight=1,
-                    tooltip=tooltip_html
+                    locations=coords,
+                    color={'Low':'green','Mid':'blue','High':'red'}.get(b_layer,'gray'),
+                    fill=True, fill_opacity=0.3, weight=1, tooltip=tooltip
                 ).add_to(m)
 
             results.append({
-                'Site ID': site_id,
-                'Site Name': site_name,
-                'Sector': sector_id,
-                'Azimuth': az,
-                'Type': site_type,
-                'Bands': raw_bands,
-                'Clutter': round(clutter, 2)
+                'Site ID': s_id, 'Site Name': s_name, 'Sector': s_idx+1,
+                'Azimuth': az, 'Type': site_type, 'Clutter': round(clutter, 2)
             })
 
-    # Save Output
+    # Save final reports
     pd.DataFrame(results).to_excel('RF_Planning_Results.xlsx', index=False)
     m.save('RF_Coverage_Map.html')
-    print("Planning Complete. Files generated: RF_Planning_Results.xlsx, RF_Coverage_Map.html")
+    print("Done. Generated RF_Planning_Results.xlsx and RF_Coverage_Map.html")
 
 if __name__ == "__main__":
     main()
