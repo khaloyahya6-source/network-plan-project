@@ -39,10 +39,8 @@ def main():
     print("Initializing RF Planning Tool...")
 
     try:
-        # Load Sites
-        df_sites = pd.read_excel('sites.xlsx', sheet_name='sites')
-        # Load Configs (Fuzzy Band Matching)
-        df_config = pd.read_excel('sites.xlsx', sheet_name='configuration')
+        # Load Sites from single sheet
+        df_sites = pd.read_excel('sites.xlsx')
     except Exception as e:
         print(f"Error loading Excel: {e}")
         return
@@ -66,13 +64,13 @@ def main():
 
         print(f"Processing Site: {site_id} ({site_name})...")
 
-        # 1. Get Bands for this site
-        site_config = df_config[df_config['Site ID'] == site_id]
-        if site_config.empty:
-            print(f"No config found for {site_id}, skipping.")
+        # 1. Get Bands for this site (Directly from columns)
+        raw_bands = row.get('Bands', '')
+        if pd.isna(raw_bands) or not str(raw_bands).strip():
+            print(f"No bands found for {site_id}, skipping.")
             continue
 
-        raw_bands = site_config.iloc[0]['Bands']
+        raw_bands = str(raw_bands)
         parsed_bands = fuzzy_parse_bands(raw_bands)
 
         # 2. Analyze Environment
