@@ -1,46 +1,19 @@
 import osmnx as ox
 import numpy as np
 import pandas as pd
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
 import math
 
 class EnvironmentAnalyzer:
-    def __init__(self, radius=1000):
-        self.radius = radius
-        # Define priority weights for different OSM tags
-        self.weights = {
-            'building': {
-                'residential': 10,
-                'commercial': 15,
-                'retail': 15,
-                'industrial': 8,
-                'school': 20,
-                'hospital': 20,
-                'mosque': 18,
-                'church': 18,
-                'yes': 5 # Default building
-            },
-            'amenity': {
-                'marketplace': 25,
-                'school': 20,
-                'university': 15,
-                'place_of_worship': 18,
-                'hospital': 20,
-                'mall': 25,
-                'bus_station': 15
-            },
-            'highway': {
-                'motorway': 12,
-                'primary': 10,
-                'secondary': 8,
-                'tertiary': 5
-            },
-            'landuse': {
-                'residential': 10,
-                'commercial': 15,
-                'industrial': 8,
-                'retail': 15
-            }
+    def __init__(self, search_radius=2500):
+        self.search_radius = search_radius
+        # Priority weights for clutter calculation
+        self.clutter_weights = {
+            'building': 1.0,
+            'amenity': 0.8,
+            'landuse_residential': 0.7,
+            'landuse_industrial': 0.6,
+            'highway': 0.4
         }
 
     def get_azimuth(self, lat1, lon1, lat2, lon2):
@@ -52,79 +25,135 @@ class EnvironmentAnalyzer:
         bearing = math.atan2(y, x)
         return (math.degrees(bearing) + 360) % 360
 
-    def analyze_environment(self, lat, lon, already_covered_polygons=None):
-        print(f"Analyzing environment at ({lat}, {lon})...")
-        if already_covered_polygons is None:
-            already_covered_polygons = []
+    def fetch_osm_data(self, lat, lon):
+        """Fetch OSM features around the site."""
         try:
-            # Fetch features from OSM
             tags = {
                 'building': True,
                 'amenity': True,
                 'highway': True,
-                'landuse': True
+                'landuse': ['residential', 'industrial', 'commercial', 'retail']
             }
-            gdf = ox.features_from_point((lat, lon), tags=tags, dist=self.radius)
+            gdf = ox.features_from_point((lat, lon), tags=tags, dist=self.search_radius)
+            return gdf
         except Exception as e:
-            print(f"Warning: Could not fetch OSM data: {e}")
-            return np.zeros(360), "Empty/Rural"
+            print(f"OSM Fetch Error: {e}")
+            return pd.DataFrame()
 
+    def get_sector_clutter_score(self, lat, lon, azimuth, beamwidth, max_range, gdf):
+        """
+        Calculate a continuous Clutter/Density Score (0-1) for a specific sector wedge.
+        """
         if gdf.empty:
-            return np.zeros(360), "Empty/Rural"
+            return 0.0
 
-        priority_map = np.zeros(360)
+        half_bw = beamwidth / 2
+        min_angle = (azimuth - half_bw) % 360
+        max_angle = (azimuth + half_bw) % 360
 
-        # Determine overall context
-        total_buildings = len(gdf[gdf['building'].notna()]) if 'building' in gdf.columns else 0
-        total_roads = len(gdf[gdf['highway'].notna()]) if 'highway' in gdf.columns else 0
+        total_weight = 0
 
-        context = "Urban" if total_buildings > 50 else "Suburban" if total_buildings > 10 else "Rural"
-        if total_roads > 5 and total_buildings < 5:
-            context = "Highway"
+        # Max weight estimation for normalization (based on a typical dense urban sector)
+        # This is a "human-like" heuristic normalization
+        max_theoretical_weight = 50
 
         for _, row in gdf.iterrows():
-            # Get center of the feature
             centroid = row.geometry.centroid
-
-            # Check if this feature is already covered by existing sectors
-            is_covered = False
-            for poly in already_covered_polygons:
-                if poly.contains(centroid):
-                    is_covered = True
-                    # print(f"DEBUG: Feature {row.get('name', 'unnamed')} is covered by an existing sector.")
-                    break
-
-            if is_covered:
-                # Optionally, instead of skipping, we could reduce priority
-                # but user said "يفضل الاستبعاد نهائي" (prefer total exclusion)
+            # Distance check (crude)
+            dist = self.haversine(lat, lon, centroid.y, centroid.x)
+            if dist > max_range:
                 continue
 
-            azimuth = self.get_azimuth(lat, lon, centroid.y, centroid.x)
+            # Azimuth check
+            target_az = self.get_azimuth(lat, lon, centroid.y, centroid.x)
 
-            weight = 1 # Default weight
+            # Handle angle wrap-around
+            is_in_wedge = False
+            if min_angle < max_angle:
+                is_in_wedge = min_angle <= target_az <= max_angle
+            else: # Wrap around North
+                is_in_wedge = target_az >= min_angle or target_az <= max_angle
 
-            # Check tags for weights
-            for tag_type, values in self.weights.items():
-                if tag_type in row and pd.notna(row[tag_type]):
-                    tag_value = row[tag_type]
-                    weight = max(weight, values.get(tag_value, values.get('yes', 1)))
+            if is_in_wedge:
+                weight = 0
+                if 'building' in row and pd.notna(row['building']): weight = self.clutter_weights['building']
+                elif 'amenity' in row and pd.notna(row['amenity']): weight = self.clutter_weights['amenity']
+                elif 'landuse' in row and pd.notna(row['landuse']):
+                    if row['landuse'] == 'industrial': weight = self.clutter_weights['landuse_industrial']
+                    else: weight = self.clutter_weights['landuse_residential']
+                elif 'highway' in row and pd.notna(row['highway']): weight = self.clutter_weights['highway']
 
-            # Distribute weight around the azimuth (accounting for size)
-            # For simplicity, we use a fixed spread or calculate based on distance
-            dist = Point(lon, lat).distance(centroid) # This is crude degree distance
-            # Better: use a small spread
-            spread = 5
-            for i in range(-spread, spread + 1):
-                angle = int((azimuth + i) % 360)
-                priority_map[angle] += weight
+                # Weight decays with distance (Inverse Square Law like)
+                distance_factor = 1 / (1 + (dist / 500)**2)
+                total_weight += weight * distance_factor
 
-        # Smooth the priority map
-        priority_map = np.convolve(priority_map, np.ones(11)/11, mode='same')
+        clutter_score = min(total_weight / max_theoretical_weight, 1.0)
+        return clutter_score
 
-        return priority_map, context
+    def haversine(self, lat1, lon1, lat2, lon2):
+        R = 6371000
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+        a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
+        return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1-a))
+
+    def classify_site(self, lat, lon, gdf):
+        """Identify if a site is Highway, Urban, or Rural."""
+        if gdf.empty:
+            return "Rural"
+
+        # Highway check: site near a motorway and low building count
+        near_motorway = False
+        if 'highway' in gdf.columns:
+            motorways = gdf[gdf['highway'].isin(['motorway', 'primary'])]
+            for _, row in motorways.iterrows():
+                if self.haversine(lat, lon, row.geometry.centroid.y, row.geometry.centroid.x) < 150:
+                    near_motorway = True
+                    break
+
+        building_count = len(gdf[gdf['building'].notna()]) if 'building' in gdf.columns else 0
+
+        if near_motorway and building_count < 10:
+            return "Highway"
+        elif building_count > 40:
+            return "Urban"
+        else:
+            return "Rural"
+
+    def detect_uncovered_clusters(self, lat, lon, sector_polygons, gdf):
+        """Find if there are isolated clusters not covered by current sectors."""
+        if gdf.empty or 'building' not in gdf.columns:
+            return False
+
+        buildings = gdf[gdf['building'].notna()]
+        uncovered_count = 0
+
+        for _, row in buildings.iterrows():
+            centroid = row.geometry.centroid
+            # We only care about buildings within 1.5km
+            if self.haversine(lat, lon, centroid.y, centroid.x) > 1500:
+                continue
+
+            is_covered = False
+            p = Point(centroid.x, centroid.y) # Point takes (x, y) which is (lon, lat)
+            # Actually sector_polygons should be in (lon, lat) for Shapely
+            for poly in sector_polygons:
+                if poly.contains(p):
+                    is_covered = True
+                    break
+
+            if not is_covered:
+                uncovered_count += 1
+
+        return uncovered_count >= 5 # Cluster trigger: 5+ buildings
 
 if __name__ == "__main__":
     analyzer = EnvironmentAnalyzer()
-    p_map, ctx = analyzer.analyze_environment(33.5138, 36.2765) # Damascus
-    print(f"Context: {ctx}")
-    print(f"Max Priority at: {np.argmax(p_map)} degrees")
+    # Test coordinates
+    lat, lon = 33.5138, 36.2765
+    data = analyzer.fetch_osm_data(lat, lon)
+    cls = analyzer.classify_site(lat, lon, data)
+    print(f"Site Classification: {cls}")
+    score = analyzer.get_sector_clutter_score(lat, lon, 0, 65, 1000, data)
+    print(f"North Sector Clutter Score: {score:.2f}")
