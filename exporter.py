@@ -5,13 +5,12 @@ import numpy as np
 class KMLExporter:
     def __init__(self, physics):
         self.physics = physics
-        # KML Color format is ABGR (Alpha Blue Green Red)
-        # Using 66 (hex) for alpha (~40% transparency)
+        # ABGR format: Alpha Blue Green Red
         self.tech_colors = {
-            'GSM': {'poly': '6600FF00', 'line': 'FF008800'},  # Green transparent / Solid dark green border
-            'UMTS': {'poly': '66FF0000', 'line': 'FF880000'}, # Blue transparent / Solid dark blue border
-            'LTE': {'poly': '660000FF', 'line': 'FF000088'},  # Red transparent / Solid dark red border
-            'NR': {'poly': '6600FFFF', 'line': 'FF008888'}    # Yellow transparent / Solid dark yellow border
+            'GSM': {'poly': '6600FF00', 'line': 'FF008800'},  # Transparent Green / Dark Green Border
+            'UMTS': {'poly': '66FF0000', 'line': 'FF880000'}, # Transparent Blue / Dark Blue Border
+            'LTE': {'poly': '660000FF', 'line': 'FF000088'},  # Transparent Red / Dark Red Border
+            'NR': {'poly': '6600FFFF', 'line': 'FF008888'}    # Transparent Yellow / Dark Cyan Border
         }
 
     def create_kml(self, towers_df, optimized_params, output_path='network_plan.kml'):
@@ -19,29 +18,25 @@ class KMLExporter:
         document = ET.SubElement(kml, 'Document')
         ET.SubElement(document, 'name').text = "JULES V01 Optimized Network Plan"
 
-        # Define Styles with Transparency and Borders
+        # Styles
         for tech, colors in self.tech_colors.items():
             style = ET.SubElement(document, 'Style', id=f"style_{tech}")
-
-            # LineStyle for Borders
-            line_style = ET.SubElement(style, 'LineStyle')
-            ET.SubElement(line_style, 'color').text = colors['line']
-            ET.SubElement(line_style, 'width').text = "3"
-
-            # PolyStyle for Transparent Fills
-            poly_style = ET.SubElement(style, 'PolyStyle')
-            ET.SubElement(poly_style, 'color').text = colors['poly']
-            ET.SubElement(poly_style, 'fill').text = "1"
-            ET.SubElement(poly_style, 'outline').text = "1"
+            ls = ET.SubElement(style, 'LineStyle')
+            ET.SubElement(ls, 'color').text = colors['line']
+            ET.SubElement(ls, 'width').text = "3"
+            ps = ET.SubElement(style, 'PolyStyle')
+            ET.SubElement(ps, 'color').text = colors['poly']
+            ET.SubElement(ps, 'fill').text = "1"
+            ET.SubElement(ps, 'outline').text = "1"
 
         for t_idx, row in towers_df.iterrows():
             tower_folder = ET.SubElement(document, 'Folder')
             ET.SubElement(tower_folder, 'name').text = str(row['Tower_ID'])
 
-            # Tower Site Location
-            placemark = ET.SubElement(tower_folder, 'Placemark')
-            ET.SubElement(placemark, 'name').text = f"Tower: {row['Tower_ID']}"
-            point = ET.SubElement(placemark, 'Point')
+            # Tower Placemark
+            tp = ET.SubElement(tower_folder, 'Placemark')
+            ET.SubElement(tp, 'name').text = f"Tower: {row['Tower_ID']}"
+            point = ET.SubElement(tp, 'Point')
             ET.SubElement(point, 'coordinates').text = f"{row['Lon']},{row['Lat']},0"
 
             tech, freq = parse_tech_string(row['Tech_String'])
@@ -51,25 +46,23 @@ class KMLExporter:
                 az = optimized_params[t_idx, s_idx, 0]
                 tilt = optimized_params[t_idx, s_idx, 1]
 
-                # Dynamic Radius Calculation (RSRP = -95dBm bound)
+                # Dynamic Cell Edge Calculation
                 dynamic_range = self.physics.calculate_cell_edge_range(row, az, tilt, freq)
 
-                sector_placemark = ET.SubElement(tower_folder, 'Placemark')
-                ET.SubElement(sector_placemark, 'name').text = f"S{s_idx + 1} | {tech} {freq} | Az:{round(az,1)}°"
-                ET.SubElement(sector_placemark, 'styleUrl').text = f"#style_{tech}"
+                sp = ET.SubElement(tower_folder, 'Placemark')
+                ET.SubElement(sp, 'name').text = f"S{s_idx + 1} | {tech} {freq} | Az:{round(az,1)}° | R:{int(dynamic_range)}m"
+                ET.SubElement(sp, 'styleUrl').text = f"#style_{tech}"
 
-                # Each sector is a distinct Polygon wedge
-                polygon = ET.SubElement(sector_placemark, 'Polygon')
+                polygon = ET.SubElement(sp, 'Polygon')
                 ET.SubElement(polygon, 'tessellate').text = "1"
-                outer_boundary = ET.SubElement(polygon, 'outerBoundaryIs')
-                linear_ring = ET.SubElement(outer_boundary, 'LinearRing')
+                outer = ET.SubElement(polygon, 'outerBoundaryIs')
+                ring = ET.SubElement(outer, 'LinearRing')
 
-                # Precise arc generation with dynamic radius
+                # Hard Coordinate Scaling inside get_sector_polygon
                 coords = self.physics.get_sector_polygon(row['Lat'], row['Lon'], az, rf_params['hbw'], dynamic_range)
                 coord_str = " ".join([f"{c[0]},{c[1]},0" for c in coords])
-                ET.SubElement(linear_ring, 'coordinates').text = coord_str
+                ET.SubElement(ring, 'coordinates').text = coord_str
 
         tree = ET.ElementTree(kml)
-        # Proper XML formatting for Google Earth
         tree.write(output_path, encoding='utf-8', xml_declaration=True)
         print(f"Professional KML exported to {output_path}")

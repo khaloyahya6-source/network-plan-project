@@ -12,27 +12,25 @@ class PhysicsEngine:
         # Constants
         self.C_LIGHT = 3e8
         self.NOISE_FLOOR = THRESHOLDS['SINR']['NoiseFloor']
+        self.METERS_PER_DEGREE = 111320
 
     def calculate_vectors(self, site_lat, site_lon, site_height):
-        # Local flat-earth projection
-        # dy = (lat2 - lat1) * 111000
-        # dx = (lon2 - lon1) * 111000 * cos(lat1)
-
+        # Professional Coordinate Scaling
         lat_rad = np.radians(site_lat)
-        dy = (self.lats - site_lat) * 111000
-        dx = (self.lons - site_lon) * 111000 * np.cos(lat_rad)
+        dy = (self.lats - site_lat) * self.METERS_PER_DEGREE
+        dx = (self.lons - site_lon) * (self.METERS_PER_DEGREE * np.cos(lat_rad))
 
         dist_2d = np.sqrt(dx**2 + dy**2)
-        dist_2d = np.maximum(dist_2d, 1.0) # Avoid division by zero
+        dist_2d = np.maximum(dist_2d, 1.0)
 
-        # Azimuth (heading from site to pixel)
-        # np.arctan2(x, y) returns angle from y-axis
         azimuths = np.degrees(np.arctan2(dx, dy)) % 360
 
-        # Elevation Angle
-        # h_pixel = elev + mobile_height (assume 1.5m)
-        h_diff = (self.elev + 1.5) - (self.grid_data['elevation'][self.find_nearest_idx(site_lat, site_lon)] + site_height)
-        # theta is angle from horizon. Negative is down.
+        # Elevation Angle calculation
+        # site_elev is extracted from the nearest grid point
+        idx = self.find_nearest_idx(site_lat, site_lon)
+        site_ground_elev = self.elev[idx]
+
+        h_diff = (self.elev + 1.5) - (site_ground_elev + site_height)
         elevation_angles = np.degrees(np.arctan2(h_diff, dist_2d))
 
         return dist_2d, azimuths, elevation_angles
@@ -46,75 +44,42 @@ class PhysicsEngine:
 
         if freq_mhz < 2000:
             # Modified COST231 Hata
-            # L = 46.3 + 33.9log10(f) - 13.82log10(hb) - a(hm) + (44.9 - 6.55log10(hb))log10(d)
-            # a(hm) for urban: (1.1log10(f)-0.7)hm - (1.56log10(f)-0.8)
             a_hm = (1.1 * np.log10(freq_mhz) - 0.7) * 1.5 - (1.56 * np.log10(freq_mhz) - 0.8)
             L = 46.3 + 33.9 * np.log10(freq_mhz) - 13.82 * np.log10(h_b) - a_hm + \
                 (44.9 - 6.55 * np.log10(h_b)) * np.log10(dist_km)
 
-            # Adjust for density (Clutter Loss)
-            # Rural offset
             rural_offset = -4.78 * (np.log10(freq_mhz))**2 + 18.33 * np.log10(freq_mhz) - 40.94
-            # Interpolate between Urban and Rural based on density (0 to 1)
             L = L + (1 - density) * rural_offset
         else:
-            # 3GPP TR 38.901 UMa (Simplified NLOS)
-            # PL = 32.4 + 20log10(d) + 20log10(fc)
-            # For NLOS: PL = 13.54 + 39.08 log10(d) + 20 log10(fc) - 0.6(hm - 1.5)
-            # Here d is 3D distance, but we use 2D as approximation for large d
+            # 3GPP TR 38.901 UMa
             PL_LOS = 32.4 + 20 * np.log10(dist_m) + 20 * np.log10(freq_mhz / 1000.0)
             PL_NLOS = 13.54 + 39.08 * np.log10(dist_m) + 20 * np.log10(freq_mhz / 1000.0)
-
-            # Dynamic weighting based on density
             L = PL_LOS * (1 - density) + PL_NLOS * density
 
         return L
 
     def antenna_gain_3d(self, azimuth_offset, elevation_offset, params, tilt):
-        # azimuth_offset: pixel_azimuth - sector_azimuth
-        # elevation_offset: pixel_elevation (from site perspective)
-        # tilt: mechanical + electrical tilt (positive is down)
-
-        # Horizontal Pattern
-        phi = azimuth_offset
-        phi = (phi + 180) % 360 - 180 # Map to [-180, 180]
+        phi = (azimuth_offset + 180) % 360 - 180
         A_H = -np.minimum(12 * (phi / params['hbw'])**2, params['front_to_back'])
 
-        # Vertical Pattern
-        # Vertical beam is centered at -tilt
         theta = elevation_offset
-        theta_tilt = -tilt # Site looking down
+        theta_tilt = -tilt
         A_V = -np.minimum(12 * ((theta - theta_tilt) / params['vbw'])**2, params['front_to_back'])
 
-        # Combined 3GPP pattern
         gain_combined = params['antenna_gain_dbi'] - np.minimum(-(A_H + A_V), params['front_to_back'])
         return gain_combined
 
     def compute_rsrp(self, tower_row, azimuth, tilt, freq_mhz):
         params = get_rf_params(freq_mhz)
         dist, az_map, el_map = self.calculate_vectors(tower_row['Lat'], tower_row['Lon'], tower_row['Total_Height_m'])
-
-        # Path Loss
         pl = self.get_path_loss(dist, freq_mhz, tower_row['Total_Height_m'], self.density)
-
-        # Antenna Gain
         gain = self.antenna_gain_3d(az_map - azimuth, el_map, params, tilt)
-
-        # RSRP = TxPower + Gain - PathLoss
         rsrp = params['tx_power_dbm'] + gain - pl
         return rsrp
 
     def compute_global_sinr(self, rsrp_matrices):
-        """
-        rsrp_matrices: dict or list of RSRP matrices for all sectors in a tech layer
-        SINR = S / (I + N)
-        """
-        # Convert dBm to Watts
-        # P(W) = 10^((P(dBm)-30)/10)
-
         power_watts = []
         for mat in rsrp_matrices:
-            # Clip extremely low values to avoid overflow
             clipped = np.maximum(mat, -150)
             power_watts.append(10**((clipped - 30) / 10))
 
@@ -132,62 +97,43 @@ class PhysicsEngine:
 
         return sinr_matrices
 
-    def get_sector_polygon(self, lat, lon, azimuth, beamwidth, max_range_m):
-        """Generates coordinates for a sector wedge polygon."""
-        points = [(lon, lat)]
+    def calculate_cell_edge_range(self, tower_row, azimuth, tilt, freq_mhz, threshold_dbm=-95):
+        # Strict Urban Attenuation Capping: Max 1500 meters
+        low = 10
+        high = 1500
 
-        # Approximate degrees
-        lat_scale = 111000
-        lon_scale = 111000 * np.cos(np.radians(lat))
+        params = get_rf_params(freq_mhz)
+        s_height = tower_row['Total_Height_m']
+        idx = self.find_nearest_idx(tower_row['Lat'], tower_row['Lon'])
+        local_density = self.density[idx]
+
+        for _ in range(12):
+            mid = (low + high) / 2
+            pl = self.get_path_loss(mid, freq_mhz, s_height, local_density)
+            h_diff = -s_height
+            el_angle = np.degrees(np.arctan2(h_diff, mid))
+            gain = self.antenna_gain_3d(0, el_angle, params, tilt)
+            rsrp = params['tx_power_dbm'] + gain - pl
+
+            if rsrp > threshold_dbm: low = mid
+            else: high = mid
+
+        return low
+
+    def get_sector_polygon(self, lat, lon, azimuth, beamwidth, max_range_m):
+        points = [(lon, lat)]
+        # Hard Coordinate Scaling
+        lat_scale = self.METERS_PER_DEGREE
+        lon_scale = self.METERS_PER_DEGREE * np.cos(np.radians(lat))
 
         half_bw = beamwidth / 2
-        # Generate arc points
         for angle in np.arange(azimuth - half_bw, azimuth + half_bw + 1, 5):
             math_angle = np.radians(90 - angle)
-
             dx = max_range_m * np.cos(math_angle)
             dy = max_range_m * np.sin(math_angle)
-
             p_lat = lat + (dy / lat_scale)
             p_lon = lon + (dx / lon_scale)
             points.append((p_lon, p_lat))
 
         points.append((lon, lat))
         return points
-
-    def calculate_cell_edge_range(self, tower_row, azimuth, tilt, freq_mhz, threshold_dbm=-95):
-        """Calculates the dynamic range where RSRP drops to threshold_dbm along the center azimuth."""
-        # Binary search for range between 50m and 5000m
-        low = 50
-        high = 5000
-        params = get_rf_params(freq_mhz)
-
-        # Site attributes
-        s_lat = tower_row['Lat']
-        s_lon = tower_row['Lon']
-        s_height = tower_row['Total_Height_m']
-
-        # Local clutter at site (simplification: use local clutter for the whole path for range estimation)
-        idx = self.find_nearest_idx(s_lat, s_lon)
-        local_density = self.density[idx]
-
-        for _ in range(10): # 10 iterations for ~5m precision
-            mid = (low + high) / 2
-
-            # Simple 1D RSRP calculation
-            pl = self.get_path_loss(mid, freq_mhz, s_height, local_density)
-            # Center azimuth means azimuth_offset = 0
-            # Elevation angle: approx -tilt for the main beam path?
-            # Actually, let's use the actual elevation angle to ground at distance 'mid'
-            h_diff = -s_height # Ground is s_height below antenna (ignoring terrain for simple range)
-            el_angle = np.degrees(np.arctan2(h_diff, mid))
-
-            gain = self.antenna_gain_3d(0, el_angle, params, tilt)
-            rsrp = params['tx_power_dbm'] + gain - pl
-
-            if rsrp > threshold_dbm:
-                low = mid
-            else:
-                high = mid
-
-        return low
