@@ -131,3 +131,26 @@ class PhysicsEngine:
             sinr_matrices.append(sinr_db)
 
         return sinr_matrices
+
+    def get_sector_polygon(self, lat, lon, azimuth, beamwidth, max_range_m):
+        """Generates coordinates for a sector wedge polygon."""
+        points = [(lon, lat)]
+
+        # Approximate degrees
+        lat_scale = 111000
+        lon_scale = 111000 * np.cos(np.radians(lat))
+
+        half_bw = beamwidth / 2
+        # Generate arc points
+        for angle in np.arange(azimuth - half_bw, azimuth + half_bw + 1, 5):
+            math_angle = np.radians(90 - angle)
+
+            dx = max_range_m * np.cos(math_angle)
+            dy = max_range_m * np.sin(math_angle)
+
+            p_lat = lat + (dy / lat_scale)
+            p_lon = lon + (dx / lon_scale)
+            points.append((p_lon, p_lat))
+
+        points.append((lon, lat))
+        return points

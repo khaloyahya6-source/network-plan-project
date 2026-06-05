@@ -70,6 +70,32 @@ class RF_Optimizer:
             overshoot = np.sum((rsrp >= -90) & (dist_m > 3000))
             total_fitness -= overshoot * 10
 
+        # Strict Inter-Site Interference Penalty
+        # For each tech layer, check for pixels with strong RSRP from multiple towers
+        for layer_key, sectors in layers.items():
+            if len(sectors) <= 3: continue # Only check if multiple towers exist in this layer
+
+            # Group rsrps by tower
+            tower_rsrps = {}
+            for t_idx, s_idx, rsrp in sectors:
+                if t_idx not in tower_rsrps:
+                    tower_rsrps[t_idx] = []
+                tower_rsrps[t_idx].append(rsrp)
+
+            if len(tower_rsrps) < 2: continue
+
+            # Best RSRP per tower
+            best_rsrp_per_tower = []
+            for t_idx, rsrps in tower_rsrps.items():
+                best_rsrp_per_tower.append(np.max(np.stack(rsrps), axis=0))
+
+            # Penalty if top 2 towers both have RSRP > -95 in same pixel
+            stack = np.stack(best_rsrp_per_tower)
+            # Find pixels where at least 2 towers have RSRP > -95
+            strong_coverage_count = np.sum(stack > -95, axis=0)
+            overlap_pixels = np.sum(strong_coverage_count >= 2)
+            total_fitness -= overlap_pixels * 50 # Heavy penalty for inter-site co-channel overlap
+
         return -total_fitness # Minimization
 
     def run_optimization(self, n_particles=20, max_iter=30):

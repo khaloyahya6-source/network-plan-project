@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from data_manager import DataManager
 from optimizer import RF_Optimizer
 from neighbor_engine import NeighborEngine
+from exporter import KMLExporter
 from config import parse_tech_string
 import os
 
@@ -63,7 +64,11 @@ def main():
     neighbor_matrix.to_excel('anr_neighbor_matrix.xlsx', index=False)
     print("Reports exported: optimized_network_audit.xlsx, anr_neighbor_matrix.xlsx")
 
-    # 7. Visualization
+    # 7. KML Export
+    kml_exp = KMLExporter(opt.physics)
+    kml_exp.create_kml(towers, optimized_params, 'network_plan.kml')
+
+    # 8. Visualization
     print("Generating Network Heatmap...")
     # Composite RSRP Heatmap (Max RSRP over all sectors)
     max_rsrp = np.max(np.stack(rsrp_mats), axis=0)
