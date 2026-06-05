@@ -18,7 +18,7 @@ class RF_Optimizer:
         """
         params = p.reshape((self.num_towers, 3, 2)) # (Tower, Sector, [Az, Tilt])
 
-        # Group sectors by Tech/Frequency for SINR (Interference only happens in-band)
+        # Group sectors by Tech/Frequency for Layered SINR analysis
         layers = {}
         for t_idx in range(self.num_towers):
             tech, freq = self.tech_data[t_idx]
@@ -33,75 +33,72 @@ class RF_Optimizer:
                 rsrp = self.physics.compute_rsrp(tower_row, az, tilt, freq)
                 layers[layer_key].append((t_idx, s_idx, rsrp))
 
-        # Compute SINR per layer and collect results
+        # Compute Quality (SINR) and Strength (RSRP) per technology layer
         all_rsrp = [None] * (self.num_towers * 3)
         all_sinr = [None] * (self.num_towers * 3)
+
+        total_sinr_fitness = 0
+        total_interference_penalty = 0
+
+        rsrp_thresh = THRESHOLDS['RSRP']['Mid'] # -95 dBm
+        sinr_thresh = THRESHOLDS['SINR']['Target'] # 3 dB
 
         for layer_key, sectors in layers.items():
             layer_rsrps = [s[2] for s in sectors]
             layer_sinrs = self.physics.compute_global_sinr(layer_rsrps)
+
+            # Interference Analysis: Find pixels with high overlap from DIFFERENT towers
+            # Group by tower ID
+            tower_best_rsrp = {}
             for i, (t_idx, s_idx, rsrp) in enumerate(sectors):
                 flat_idx = t_idx * 3 + s_idx
                 all_rsrp[flat_idx] = rsrp
                 all_sinr[flat_idx] = layer_sinrs[i]
 
-        # Calculate Fitness
-        total_fitness = 0
-        rsrp_thresh = THRESHOLDS['RSRP']['Mid']
-        sinr_thresh = THRESHOLDS['SINR']['Target']
+                # Quality score: Maximize area where SINR >= 3dB and RSRP >= -95dBm
+                # We give more weight to quality (SINR)
+                total_sinr_fitness += np.sum((rsrp >= rsrp_thresh) & (layer_sinrs[i] >= sinr_thresh))
 
-        for i, (rsrp, sinr) in enumerate(zip(all_rsrp, all_sinr)):
-            # Good coverage pixels
-            good_pixels = np.sum((rsrp >= rsrp_thresh) & (sinr >= sinr_thresh))
-            total_fitness += good_pixels
+                if t_idx not in tower_best_rsrp:
+                    tower_best_rsrp[t_idx] = rsrp
+                else:
+                    tower_best_rsrp[t_idx] = np.maximum(tower_best_rsrp[t_idx], rsrp)
 
-            # Penalize Intra-site overlap
+            # Savage Inter-Site Interference Penalty
+            if len(tower_best_rsrp) > 1:
+                tower_mats = list(tower_best_rsrp.values())
+                stack = np.stack(tower_mats)
+                # Count towers covering each pixel with strong signal
+                count_map = np.sum(stack >= rsrp_thresh, axis=0)
+                # Pixels with 2 or more strong interferers
+                overlap_pixels = np.sum(count_map >= 2)
+                # Exponential penalty to brutally steer PSO away from overlaps
+                total_interference_penalty += (overlap_pixels ** 1.5) * 100
+
+        # Geometric Constraints (Intra-site separation)
+        intra_penalty = 0
+        for t_idx in range(self.num_towers):
+            for s1 in range(3):
+                for s2 in range(s1 + 1, 3):
+                    diff = abs(params[t_idx, s1, 0] - params[t_idx, s2, 0])
+                    diff = min(diff, 360 - diff)
+                    if diff < 45: # Standard 120 deg separation check
+                        intra_penalty += (45 - diff) * 10000
+
+        # Overshooting Penalty
+        overshoot_penalty = 0
+        for i, rsrp in enumerate(all_rsrp):
+            if rsrp is None: continue
             t_idx = i // 3
-            s_idx = i % 3
-            for other_s in range(3):
-                if s_idx == other_s: continue
-                az_diff = abs(params[t_idx, s_idx, 0] - params[t_idx, other_s, 0])
-                az_diff = min(az_diff, 360 - az_diff)
-                if az_diff < 45: # Penalty for sectors too close
-                    total_fitness -= 5000 * (45 - az_diff)
-
-            # Penalize Overshooting
             dist_m, _, _ = self.physics.calculate_vectors(self.towers_df.iloc[t_idx]['Lat'], self.towers_df.iloc[t_idx]['Lon'], self.towers_df.iloc[t_idx]['Total_Height_m'])
-            overshoot = np.sum((rsrp >= -90) & (dist_m > 3000))
-            total_fitness -= overshoot * 10
+            overshoot_penalty += np.sum((rsrp >= -90) & (dist_m > 3000)) * 50
 
-        # Strict Inter-Site Interference Penalty
-        # For each tech layer, check for pixels with strong RSRP from multiple towers
-        for layer_key, sectors in layers.items():
-            if len(sectors) <= 3: continue # Only check if multiple towers exist in this layer
-
-            # Group rsrps by tower
-            tower_rsrps = {}
-            for t_idx, s_idx, rsrp in sectors:
-                if t_idx not in tower_rsrps:
-                    tower_rsrps[t_idx] = []
-                tower_rsrps[t_idx].append(rsrp)
-
-            if len(tower_rsrps) < 2: continue
-
-            # Best RSRP per tower
-            best_rsrp_per_tower = []
-            for t_idx, rsrps in tower_rsrps.items():
-                best_rsrp_per_tower.append(np.max(np.stack(rsrps), axis=0))
-
-            # Penalty if top 2 towers both have RSRP > -95 in same pixel
-            stack = np.stack(best_rsrp_per_tower)
-            # Find pixels where at least 2 towers have RSRP > -95
-            strong_coverage_count = np.sum(stack > -95, axis=0)
-            overlap_pixels = np.sum(strong_coverage_count >= 2)
-            total_fitness -= overlap_pixels * 50 # Heavy penalty for inter-site co-channel overlap
-
-        return -total_fitness # Minimization
+        # Final Fitness: Maximize Quality Area, Minimize Interference and Overlap
+        fitness = total_sinr_fitness - total_interference_penalty - intra_penalty - overshoot_penalty
+        return -fitness # PSO minimizes
 
     def run_optimization(self, n_particles=20, max_iter=30):
-        # 3 sectors per tower, 2 vars per sector (Az, Tilt)
         dim = self.num_towers * 3 * 2
-
         lb = []
         ub = []
         for _ in range(self.num_towers):
@@ -109,7 +106,7 @@ class RF_Optimizer:
                 lb.extend([0, MIN_TILT])
                 ub.extend([360, MAX_TILT])
 
-        print(f"Starting PSO Optimization with {dim} dimensions...")
+        print(f"Executing PSO Engine ({dim}D space, {n_particles} particles)...")
         pso = PSO(func=self.objective_function, n_dim=dim, pop=n_particles, max_iter=max_iter, lb=lb, ub=ub, verbose=True)
         best_x, best_y = pso.run()
 
