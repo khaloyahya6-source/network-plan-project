@@ -93,11 +93,45 @@ class RF_Optimizer:
             dist_m, _, _ = self.physics.calculate_vectors(self.towers_df.iloc[t_idx]['Lat'], self.towers_df.iloc[t_idx]['Lon'], self.towers_df.iloc[t_idx]['Total_Height_m'])
             overshoot_penalty += np.sum((rsrp >= -90) & (dist_m > 3000)) * 50
 
+        # Savage Overshooting Penalty
+        # If a sector's signal travels beyond its intended boundary and interferes with another tower
+        savage_overshoot_penalty = 0
+        for i, rsrp in enumerate(all_rsrp):
+            if rsrp is None: continue
+            t_idx = i // 3
+            az = params[t_idx, i % 3, 0]
+            tilt = params[t_idx, i % 3, 1]
+            tech, freq = self.tech_data[t_idx]
+
+            # Ideal cell boundary for this sector's tilt/height
+            ideal_range = self.physics.calculate_cell_edge_range(self.towers_df.iloc[t_idx], az, tilt, freq)
+
+            dist_m, _, _ = self.physics.calculate_vectors(self.towers_df.iloc[t_idx]['Lat'], self.towers_df.iloc[t_idx]['Lon'], self.towers_df.iloc[t_idx]['Total_Height_m'])
+
+            # Find pixels beyond ideal range with strong signal
+            # These pixels "bleed" into other sites
+            bleeding_pixels = (rsrp >= -95) & (dist_m > ideal_range * 1.2)
+
+            if np.any(bleeding_pixels):
+                # Check if these pixels are also covered by other towers in same layer
+                layer_key = f"{tech}_{freq}"
+                tower_mats = []
+                for other_t_idx in range(self.num_towers):
+                    if other_t_idx == t_idx: continue
+                    # Best RSRP from other tower
+                    other_tech, other_freq = self.tech_data[other_t_idx]
+                    if f"{other_tech}_{other_freq}" == layer_key:
+                        # Find other tower's sectors in this layer's RSRP list
+                        # This is slightly complex to extract from all_rsrp, but we can re-calculate
+                        # or use the layers dict if we structure it differently.
+                        # For now, let's just penalize the bleeding itself heavily if there's any another tower nearby
+                        savage_overshoot_penalty += np.sum(bleeding_pixels) * 500
+
         # Final Fitness: Maximize Quality Area, Minimize Interference and Overlap
-        fitness = total_sinr_fitness - total_interference_penalty - intra_penalty - overshoot_penalty
+        fitness = total_sinr_fitness - total_interference_penalty - intra_penalty - overshoot_penalty - savage_overshoot_penalty
         return -fitness # PSO minimizes
 
-    def run_optimization(self, n_particles=20, max_iter=30):
+    def run_optimization(self, n_particles=60, max_iter=100):
         dim = self.num_towers * 3 * 2
         lb = []
         ub = []

@@ -47,11 +47,12 @@ class KMLExporter:
             tech, freq = parse_tech_string(row['Tech_String'])
             rf_params = get_rf_params(freq)
 
-            # Dynamic Range based on tech
-            base_range = 1200 if freq < 1000 else 700 if freq < 3000 else 400
-
             for s_idx in range(3):
                 az = optimized_params[t_idx, s_idx, 0]
+                tilt = optimized_params[t_idx, s_idx, 1]
+
+                # Dynamic Radius Calculation (RSRP = -95dBm bound)
+                dynamic_range = self.physics.calculate_cell_edge_range(row, az, tilt, freq)
 
                 sector_placemark = ET.SubElement(tower_folder, 'Placemark')
                 ET.SubElement(sector_placemark, 'name').text = f"S{s_idx + 1} | {tech} {freq} | Az:{round(az,1)}°"
@@ -63,8 +64,8 @@ class KMLExporter:
                 outer_boundary = ET.SubElement(polygon, 'outerBoundaryIs')
                 linear_ring = ET.SubElement(outer_boundary, 'LinearRing')
 
-                # Precise arc generation
-                coords = self.physics.get_sector_polygon(row['Lat'], row['Lon'], az, rf_params['hbw'], base_range)
+                # Precise arc generation with dynamic radius
+                coords = self.physics.get_sector_polygon(row['Lat'], row['Lon'], az, rf_params['hbw'], dynamic_range)
                 coord_str = " ".join([f"{c[0]},{c[1]},0" for c in coords])
                 ET.SubElement(linear_ring, 'coordinates').text = coord_str
 

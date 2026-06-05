@@ -37,7 +37,7 @@ def main():
 
     # 3. AI Optimization
     opt = RF_Optimizer(towers, grid_data)
-    optimized_params = opt.run_optimization(n_particles=15, max_iter=20)
+    optimized_params = opt.run_optimization(n_particles=60, max_iter=100)
 
     # 4. Final Calculations
     rsrp_mats, sinr_mats = opt.get_final_matrices(optimized_params)

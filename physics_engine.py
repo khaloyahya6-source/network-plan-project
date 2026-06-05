@@ -154,3 +154,40 @@ class PhysicsEngine:
 
         points.append((lon, lat))
         return points
+
+    def calculate_cell_edge_range(self, tower_row, azimuth, tilt, freq_mhz, threshold_dbm=-95):
+        """Calculates the dynamic range where RSRP drops to threshold_dbm along the center azimuth."""
+        # Binary search for range between 50m and 5000m
+        low = 50
+        high = 5000
+        params = get_rf_params(freq_mhz)
+
+        # Site attributes
+        s_lat = tower_row['Lat']
+        s_lon = tower_row['Lon']
+        s_height = tower_row['Total_Height_m']
+
+        # Local clutter at site (simplification: use local clutter for the whole path for range estimation)
+        idx = self.find_nearest_idx(s_lat, s_lon)
+        local_density = self.density[idx]
+
+        for _ in range(10): # 10 iterations for ~5m precision
+            mid = (low + high) / 2
+
+            # Simple 1D RSRP calculation
+            pl = self.get_path_loss(mid, freq_mhz, s_height, local_density)
+            # Center azimuth means azimuth_offset = 0
+            # Elevation angle: approx -tilt for the main beam path?
+            # Actually, let's use the actual elevation angle to ground at distance 'mid'
+            h_diff = -s_height # Ground is s_height below antenna (ignoring terrain for simple range)
+            el_angle = np.degrees(np.arctan2(h_diff, mid))
+
+            gain = self.antenna_gain_3d(0, el_angle, params, tilt)
+            rsrp = params['tx_power_dbm'] + gain - pl
+
+            if rsrp > threshold_dbm:
+                low = mid
+            else:
+                high = mid
+
+        return low
